@@ -130,6 +130,30 @@ def draw_menu_difficulty(window, big_font, font):
     window.blit(hint, hint.get_rect(center=(WIDTH // 2, 330)))
 
 
+def draw_menu_ready(window, big_font, font, menu):
+    window.fill((235, 235, 245))
+    title = big_font.render("Controles", True, (40, 40, 40))
+    window.blit(title, title.get_rect(center=(WIDTH // 2, 60)))
+
+    lines = ["Jogador 1: A/D mover, W pular, S bloquear, ESPACO socar"]
+    if menu["mode"] == "2p":
+        lines.append(
+            "Jogador 2: setas mover/pular, seta p/ baixo bloquear, CTRL direito socar"
+        )
+    else:
+        lines.append(f"Computador no nivel: {DIFFICULTIES[menu['difficulty']]['label']}")
+    lines.append("")
+    lines.append("P pausa  |  R revanche  |  M menu  |  ESC sai")
+    lines.append("Melhor de 3 rounds, 60 segundos cada")
+
+    for i, line in enumerate(lines):
+        label = font.render(line, True, (60, 60, 60))
+        window.blit(label, label.get_rect(center=(WIDTH // 2, 150 + i * 34)))
+
+    hint = font.render("Pressione ENTER para comecar  |  M volta ao menu", True, (110, 110, 110))
+    window.blit(hint, hint.get_rect(center=(WIDTH // 2, 150 + len(lines) * 34 + 20)))
+
+
 def main():
     pygame.init()
     sound.init_sound()
@@ -157,7 +181,7 @@ def main():
                     if menu["status"] == "menu_mode":
                         if event.key == pygame.K_1:
                             menu["mode"] = "2p"
-                            state = build_match("2p", None)
+                            menu["status"] = "menu_ready"
                         elif event.key == pygame.K_2:
                             menu["mode"] = "cpu"
                             menu["status"] = "menu_difficulty"
@@ -170,7 +194,13 @@ def main():
                         elif event.key == pygame.K_3:
                             chosen = "dificil"
                         if chosen:
-                            state = build_match("cpu", chosen)
+                            menu["difficulty"] = chosen
+                            menu["status"] = "menu_ready"
+                    elif menu["status"] == "menu_ready":
+                        if event.key == pygame.K_RETURN:
+                            state = build_match(menu["mode"], menu["difficulty"])
+                        elif event.key == pygame.K_m:
+                            menu = new_menu_state()
                 else:
                     if event.key == pygame.K_m:
                         state = None
@@ -187,8 +217,10 @@ def main():
         if state is None:
             if menu["status"] == "menu_mode":
                 draw_menu_mode(window, big_font, font)
-            else:
+            elif menu["status"] == "menu_difficulty":
                 draw_menu_difficulty(window, big_font, font)
+            else:
+                draw_menu_ready(window, big_font, font, menu)
             pygame.display.update()
             clock.tick(FPS)
             continue
