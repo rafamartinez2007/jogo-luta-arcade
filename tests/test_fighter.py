@@ -70,6 +70,32 @@ def test_jump_only_works_on_ground():
     assert p1.vel_y == vel_after_first_jump
 
 
+def test_unblocked_hit_sets_last_hit_landed_flag():
+    p1, p2 = make_pair()
+    p1.try_punch()
+    p1.update(p2)
+    assert p1.last_hit_landed is True
+    assert p1.last_hit_blocked is False
+
+
+def test_blocked_hit_sets_last_hit_blocked_flag():
+    p1, p2 = make_pair()
+    p2.blocking = True
+    p1.try_punch()
+    p1.update(p2)
+    assert p1.last_hit_blocked is True
+    assert p1.last_hit_landed is False
+
+
+def test_hit_flags_reset_on_frame_without_a_new_hit():
+    p1, p2 = make_pair()
+    p1.try_punch()
+    p1.update(p2)
+    assert p1.last_hit_landed is True
+    p1.update(p2)
+    assert p1.last_hit_landed is False
+
+
 def test_reset_restores_full_health_and_position():
     p1, p2 = make_pair()
     p1.try_punch()

@@ -50,6 +50,8 @@ class Fighter:
         self.attack_cooldown = 0
         self.attack_active = 0
         self.hit_registered = False
+        self.last_hit_landed = False
+        self.last_hit_blocked = False
 
     def reset(self, x, facing):
         self.rect.x = x
@@ -62,6 +64,8 @@ class Fighter:
         self.attack_cooldown = 0
         self.attack_active = 0
         self.hit_registered = False
+        self.last_hit_landed = False
+        self.last_hit_blocked = False
 
     def try_jump(self):
         if self.on_ground:
@@ -95,6 +99,9 @@ class Fighter:
         self.blocking = keys[self.controls["block"]] and self.on_ground
 
     def update(self, opponent):
+        self.last_hit_landed = False
+        self.last_hit_blocked = False
+
         self.vel_y += GRAVITY
         self.rect.y += self.vel_y
         if self.rect.bottom >= GROUND_Y:
@@ -118,12 +125,14 @@ class Fighter:
                     facing_each_other = opponent.facing == -self.facing
                     if opponent.blocking and facing_each_other:
                         opponent.health -= DAMAGE_BLOCKED
+                        self.last_hit_blocked = True
                     else:
                         opponent.health -= DAMAGE_HIT
                         opponent.rect.x += KNOCKBACK * self.facing
                         opponent.rect.x = max(
                             0, min(WIDTH - FIGHTER_WIDTH, opponent.rect.x)
                         )
+                        self.last_hit_landed = True
                     opponent.health = max(0, opponent.health)
 
     def get_hitbox(self):

@@ -2,6 +2,7 @@ import sys
 
 import pygame
 
+import sound
 from bot import DIFFICULTIES, Bot
 from fighter import (
     CONTROLS_P1,
@@ -131,6 +132,7 @@ def draw_menu_difficulty(window, big_font, font):
 
 def main():
     pygame.init()
+    sound.init_sound()
     window = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("Jogo de Luta Arcade")
     clock = pygame.time.Clock()
@@ -204,12 +206,18 @@ def main():
             state["p1"].update(state["p2"])
             state["p2"].update(state["p1"])
 
+            if state["p1"].last_hit_landed or state["p2"].last_hit_landed:
+                sound.play(sound.get_hit_sound())
+            elif state["p1"].last_hit_blocked or state["p2"].last_hit_blocked:
+                sound.play(sound.get_block_sound())
+
             elapsed = (pygame.time.get_ticks() - state["round_start_ticks"]) / 1000
             remaining = max(0, ROUND_SECONDS - elapsed)
             state["last_remaining"] = remaining
 
             if state["p1"].health <= 0 or state["p2"].health <= 0 or remaining <= 0:
                 resolve_round(state)
+                sound.play(sound.get_round_end_sound())
         elif state["status"] == "round_end":
             if pygame.time.get_ticks() - state["round_end_ticks"] >= ROUND_END_DISPLAY_MS:
                 start_next_round(state)
