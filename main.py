@@ -46,7 +46,23 @@ def build_match(mode, difficulty):
         "round_end_ticks": 0,
         "status": "fight",
         "message": "",
+        "paused": False,
+        "pause_started_at": None,
+        "last_remaining": ROUND_SECONDS,
     }
+
+
+def toggle_pause(state):
+    if state["status"] != "fight":
+        return
+    if not state["paused"]:
+        state["paused"] = True
+        state["pause_started_at"] = pygame.time.get_ticks()
+    else:
+        paused_for = pygame.time.get_ticks() - state["pause_started_at"]
+        state["round_start_ticks"] += paused_for
+        state["paused"] = False
+        state["pause_started_at"] = None
 
 
 def start_next_round(state):
@@ -159,7 +175,9 @@ def main():
                         menu = new_menu_state()
                     elif event.key == pygame.K_r:
                         state = build_match(state["mode"], state["difficulty"])
-                    elif state["status"] == "fight":
+                    elif event.key == pygame.K_p:
+                        toggle_pause(state)
+                    elif state["status"] == "fight" and not state["paused"]:
                         state["p1"].handle_keydown(event.key)
                         if state["mode"] == "2p":
                             state["p2"].handle_keydown(event.key)
@@ -173,7 +191,9 @@ def main():
             clock.tick(FPS)
             continue
 
-        if state["status"] == "fight":
+        if state["status"] == "fight" and state["paused"]:
+            remaining = state["last_remaining"]
+        elif state["status"] == "fight":
             keys = pygame.key.get_pressed()
             state["p1"].handle_keys(keys)
             if state["mode"] == "2p":
@@ -186,6 +206,7 @@ def main():
 
             elapsed = (pygame.time.get_ticks() - state["round_start_ticks"]) / 1000
             remaining = max(0, ROUND_SECONDS - elapsed)
+            state["last_remaining"] = remaining
 
             if state["p1"].health <= 0 or state["p2"].health <= 0 or remaining <= 0:
                 resolve_round(state)
@@ -217,6 +238,17 @@ def main():
             )
             window.blit(diff_label, (WIDTH // 2 - diff_label.get_width() // 2, 60))
 
+        if state["status"] == "fight" and state["paused"]:
+            overlay = pygame.Surface((WIDTH, HEIGHT))
+            overlay.set_alpha(150)
+            overlay.fill((255, 255, 255))
+            window.blit(overlay, (0, 0))
+
+            msg_surf = big_font.render("PAUSADO", True, (40, 40, 40))
+            window.blit(msg_surf, msg_surf.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
+            hint = hint_font.render("Pressione P para continuar", True, (60, 60, 60))
+            window.blit(hint, hint.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 30)))
+
         if state["status"] in ("round_end", "match_end"):
             overlay = pygame.Surface((WIDTH, HEIGHT))
             overlay.set_alpha(150)
@@ -239,13 +271,13 @@ def main():
         if state["mode"] == "2p":
             controls_hint = hint_font.render(
                 "P1: A/D mover, W pular, S bloquear, ESPACO socar"
-                "   |   P2: setas mover/pular/bloquear, CTRL direito socar",
+                "   |   P2: setas mover/pular/bloquear, CTRL direito socar   |   P pausa",
                 True,
                 (90, 90, 90),
             )
         else:
             controls_hint = hint_font.render(
-                "A/D mover, W pular, S bloquear, ESPACO socar   |   M menu   R revanche",
+                "A/D mover, W pular, S bloquear, ESPACO socar   |   P pausa   M menu   R revanche",
                 True,
                 (90, 90, 90),
             )
