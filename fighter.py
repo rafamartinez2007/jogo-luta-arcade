@@ -63,14 +63,26 @@ class Fighter:
         self.attack_active = 0
         self.hit_registered = False
 
-    def handle_keydown(self, key):
-        if key == self.controls["jump"] and self.on_ground:
+    def try_jump(self):
+        if self.on_ground:
             self.vel_y = JUMP_SPEED
             self.on_ground = False
-        if key == self.controls["punch"] and self.attack_cooldown <= 0:
+
+    def try_punch(self):
+        if self.attack_cooldown <= 0:
             self.attack_active = ATTACK_ACTIVE_FRAMES
             self.attack_cooldown = ATTACK_COOLDOWN_FRAMES
             self.hit_registered = False
+
+    def set_horizontal(self, move):
+        self.rect.x += move
+        self.rect.x = max(0, min(WIDTH - FIGHTER_WIDTH, self.rect.x))
+
+    def handle_keydown(self, key):
+        if key == self.controls["jump"]:
+            self.try_jump()
+        if key == self.controls["punch"]:
+            self.try_punch()
 
     def handle_keys(self, keys):
         move = 0
@@ -78,8 +90,7 @@ class Fighter:
             move -= MOVE_SPEED
         if keys[self.controls["right"]]:
             move += MOVE_SPEED
-        self.rect.x += move
-        self.rect.x = max(0, min(WIDTH - FIGHTER_WIDTH, self.rect.x))
+        self.set_horizontal(move)
 
         self.blocking = keys[self.controls["block"]] and self.on_ground
 

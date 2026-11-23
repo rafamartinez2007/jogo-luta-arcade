@@ -2,6 +2,7 @@ import sys
 
 import pygame
 
+from bot import DIFFICULTIES, Bot
 from fighter import (
     CONTROLS_P1,
     CONTROLS_P2,
@@ -22,18 +23,28 @@ ROUND_END_DISPLAY_MS = 2200
 P1_START_X = 150
 P2_START_X = WIDTH - 150 - FIGHTER_WIDTH
 
+DIFFICULTY_ORDER = ["facil", "medio", "dificil"]
 
-def new_match_state():
+
+def new_menu_state():
+    return {"status": "menu_mode", "mode": None, "difficulty": None}
+
+
+def build_match(mode, difficulty):
     p1 = Fighter(P1_START_X, 1, (210, 60, 60), CONTROLS_P1, "Jogador 1")
-    p2 = Fighter(P2_START_X, -1, (60, 90, 210), CONTROLS_P2, "Jogador 2")
+    p2_name = "Computador" if mode == "cpu" else "Jogador 2"
+    p2 = Fighter(P2_START_X, -1, (60, 90, 210), CONTROLS_P2, p2_name)
     return {
+        "mode": mode,
+        "difficulty": difficulty,
+        "bot": Bot(difficulty) if mode == "cpu" else None,
         "p1": p1,
         "p2": p2,
         "p1_wins": 0,
         "p2_wins": 0,
         "round_start_ticks": pygame.time.get_ticks(),
         "round_end_ticks": 0,
-        "status": "fight",  # fight, round_end, match_end
+        "status": "fight",
         "message": "",
     }
 
@@ -74,6 +85,34 @@ def resolve_round(state):
         state["status"] = "round_end"
 
 
+def draw_menu_mode(window, big_font, font):
+    window.fill((235, 235, 245))
+    title = big_font.render("Jogo de Luta Arcade", True, (40, 40, 40))
+    window.blit(title, title.get_rect(center=(WIDTH // 2, 100)))
+
+    opt1 = font.render("1 - Dois jogadores (mesmo teclado)", True, (60, 60, 60))
+    opt2 = font.render("2 - Jogador vs Computador", True, (60, 60, 60))
+    window.blit(opt1, opt1.get_rect(center=(WIDTH // 2, 200)))
+    window.blit(opt2, opt2.get_rect(center=(WIDTH // 2, 240)))
+
+    hint = font.render("Pressione 1 ou 2  |  ESC sai", True, (110, 110, 110))
+    window.blit(hint, hint.get_rect(center=(WIDTH // 2, 320)))
+
+
+def draw_menu_difficulty(window, big_font, font):
+    window.fill((235, 235, 245))
+    title = big_font.render("Escolha a dificuldade", True, (40, 40, 40))
+    window.blit(title, title.get_rect(center=(WIDTH // 2, 100)))
+
+    for i, key in enumerate(DIFFICULTY_ORDER):
+        label = f"{i + 1} - {DIFFICULTIES[key]['label']}"
+        opt = font.render(label, True, (60, 60, 60))
+        window.blit(opt, opt.get_rect(center=(WIDTH // 2, 190 + i * 40)))
+
+    hint = font.render("Pressione 1, 2 ou 3  |  ESC sai", True, (110, 110, 110))
+    window.blit(hint, hint.get_rect(center=(WIDTH // 2, 330)))
+
+
 def main():
     pygame.init()
     window = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -83,7 +122,8 @@ def main():
     big_font = pygame.font.SysFont(None, 44)
     hint_font = pygame.font.SysFont(None, 22)
 
-    state = new_match_state()
+    menu = new_menu_state()
+    state = None
     game = True
 
     while game:
@@ -93,16 +133,54 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     game = False
-                elif event.key == pygame.K_r:
-                    state = new_match_state()
-                elif state["status"] == "fight":
-                    state["p1"].handle_keydown(event.key)
-                    state["p2"].handle_keydown(event.key)
+                    continue
+
+                if state is None:
+                    if menu["status"] == "menu_mode":
+                        if event.key == pygame.K_1:
+                            menu["mode"] = "2p"
+                            state = build_match("2p", None)
+                        elif event.key == pygame.K_2:
+                            menu["mode"] = "cpu"
+                            menu["status"] = "menu_difficulty"
+                    elif menu["status"] == "menu_difficulty":
+                        chosen = None
+                        if event.key == pygame.K_1:
+                            chosen = "facil"
+                        elif event.key == pygame.K_2:
+                            chosen = "medio"
+                        elif event.key == pygame.K_3:
+                            chosen = "dificil"
+                        if chosen:
+                            state = build_match("cpu", chosen)
+                else:
+                    if event.key == pygame.K_m:
+                        state = None
+                        menu = new_menu_state()
+                    elif event.key == pygame.K_r:
+                        state = build_match(state["mode"], state["difficulty"])
+                    elif state["status"] == "fight":
+                        state["p1"].handle_keydown(event.key)
+                        if state["mode"] == "2p":
+                            state["p2"].handle_keydown(event.key)
+
+        if state is None:
+            if menu["status"] == "menu_mode":
+                draw_menu_mode(window, big_font, font)
+            else:
+                draw_menu_difficulty(window, big_font, font)
+            pygame.display.update()
+            clock.tick(FPS)
+            continue
 
         if state["status"] == "fight":
             keys = pygame.key.get_pressed()
             state["p1"].handle_keys(keys)
-            state["p2"].handle_keys(keys)
+            if state["mode"] == "2p":
+                state["p2"].handle_keys(keys)
+            else:
+                state["bot"].update(state["p2"], state["p1"])
+
             state["p1"].update(state["p2"])
             state["p2"].update(state["p1"])
 
@@ -133,6 +211,12 @@ def main():
             timer_label = big_font.render(str(int(remaining)), True, (60, 60, 60))
             window.blit(timer_label, timer_label.get_rect(center=(WIDTH // 2, 45)))
 
+        if state["mode"] == "cpu":
+            diff_label = font.render(
+                f"CPU: {DIFFICULTIES[state['difficulty']]['label']}", True, (90, 90, 90)
+            )
+            window.blit(diff_label, (WIDTH // 2 - diff_label.get_width() // 2, 60))
+
         if state["status"] in ("round_end", "match_end"):
             overlay = pygame.Surface((WIDTH, HEIGHT))
             overlay.set_alpha(150)
@@ -144,18 +228,27 @@ def main():
 
             if state["status"] == "match_end":
                 hint = hint_font.render(
-                    "Pressione R para jogar de novo ou ESC para sair", True, (60, 60, 60)
+                    "R para jogar de novo  |  M para o menu  |  ESC para sair",
+                    True,
+                    (60, 60, 60),
                 )
                 window.blit(
                     hint, hint.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 40))
                 )
 
-        controls_hint = hint_font.render(
-            "P1: A/D mover, W pular, S bloquear, ESPACO socar"
-            "   |   P2: setas mover/pular/bloquear, CTRL direito socar",
-            True,
-            (90, 90, 90),
-        )
+        if state["mode"] == "2p":
+            controls_hint = hint_font.render(
+                "P1: A/D mover, W pular, S bloquear, ESPACO socar"
+                "   |   P2: setas mover/pular/bloquear, CTRL direito socar",
+                True,
+                (90, 90, 90),
+            )
+        else:
+            controls_hint = hint_font.render(
+                "A/D mover, W pular, S bloquear, ESPACO socar   |   M menu   R revanche",
+                True,
+                (90, 90, 90),
+            )
         window.blit(controls_hint, controls_hint.get_rect(center=(WIDTH // 2, HEIGHT - 12)))
 
         pygame.display.update()
