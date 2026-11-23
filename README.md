@@ -31,6 +31,17 @@ pip install -r requirements.txt
 python3 main.py
 ```
 
+## Testes
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+Os testes cobrem dano, bloqueio, knockback, cooldown de ataque,
+resolução de round/luta e o comportamento da IA (aproximação, ataque
+e bloqueio em cada dificuldade), sem precisar abrir uma janela.
+
 ## Estrutura
 
 - `main.py` — loop principal, menu de modo/dificuldade, estados da partida (lutando / fim de round / fim de luta), rounds e pontuação.
